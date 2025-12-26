@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lotería Caller</title>
-    <style>
+<style>
         :root {
             --bg-color: #f0f0f0;
             --card-border: #333;
-            --accent-color: #d32f2f; /* Classic red */
+            --accent-color: #d32f2f;
         }
 
         body {
@@ -17,11 +17,14 @@
             margin: 0;
             display: flex;
             flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
+            
+            /* CHANGE 1: Use dvh (dynamic height) to account for mobile browser bars */
+            height: 100dvh; 
+            
+            /* CHANGE 2: Prevent any scrolling on the main page */
+            overflow: hidden; 
         }
 
-        /* Top Controls */
         .controls {
             padding: 15px;
             background: white;
@@ -31,6 +34,7 @@
             align-items: center;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             z-index: 10;
+            flex-shrink: 0; /* Prevents controls from squishing */
         }
 
         button {
@@ -53,7 +57,6 @@
             background-color: #555;
         }
 
-        /* Speed Slider */
         .speed-control {
             display: flex;
             flex-direction: column;
@@ -62,31 +65,37 @@
             margin-left: 10px;
         }
 
-        /* Main Card Display */
         .main-display {
             flex: 1;
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 20px;
+            
+            /* CHANGE 3: Allows this section to shrink if screen is short */
+            min-height: 0; 
         }
 
         #current-card-img {
-            max-height: 100%;
+            /* Ensures image scales down but keeps ratio */
+            max-height: 100%; 
             max-width: 100%;
             border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             object-fit: contain;
-            /* Placeholder styling */
             min-width: 200px;
-            min-height: 300px;
+            /* Removed min-height so it doesn't force overflow */
             background: #ddd;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
-        /* History Strip (Bottom) */
+        #placeholder-text {
+             font-size: 24px; 
+             color: #666;
+        }
+
         .history-container {
             height: 120px;
             background: #ddd;
@@ -96,6 +105,10 @@
             padding: 0 10px;
             gap: 10px;
             border-top: 2px solid #bbb;
+            flex-shrink: 0; /* Prevents history strip from squishing */
+            
+            /* Adds safe area for iPhones/Pixels with gesture bars */
+            padding-bottom: env(safe-area-inset-bottom); 
         }
 
         .history-card {
@@ -282,3 +295,4 @@
 </body>
 
 </html>
+
