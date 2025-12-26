@@ -222,6 +222,10 @@
         // --- AUDIO ---
         const player = new Audio();
         const introPlayer = new Audio('intro.mp3');
+        
+        // Bluetooth Fix: Loop silence to keep speaker awake
+        const silencePlayer = new Audio('silence.wav'); 
+        silencePlayer.loop = true;
 
         // Service Worker
         if ('serviceWorker' in navigator) {
@@ -238,42 +242,41 @@
             }
         }
 
-        function startGame() {
-            function startGame() {
-            // FIX: Enable Bluetooth Keep-Alive immediately on user interaction
-            enableBluetoothKeepAlive(); 
+function startGame() {
+            // 1. BLUETOOTH FIX: Play silent WAV immediately to wake up speaker
+            silencePlayer.play().catch(e => console.log("Silence failed:", e));
 
+            // 2. Ensure deck is ready
             if (gameDeck.length === 0) shuffleDeck();
             
-            // ... rest of your code ...
-            if (gameDeck.length === 0) shuffleDeck();
-            
+            // 3. Update UI
             startBtn.textContent = "Pause";
             startBtn.style.backgroundColor = "#e6b800"; 
             placeholder.style.display = 'none';
             mainImg.style.display = 'block';
 
+            // 4. Intro Logic (Play intro if it's the start of the game)
             if (currentIndex === -1) {
-                // Intro Logic
                 isIntroPlaying = true;
-                mainImg.src = "icon.jpg"; // Show logo during intro
+                mainImg.src = "icon.jpg"; 
                 
-                // Try to play intro; handle user interaction restrictions
-                introPlayer.play().then(() => {
-                    // Intro playing successfully
-                }).catch(e => {
-                    // If audio blocked, skip intro logic
+                // Play Intro Audio
+                introPlayer.play().catch(e => {
+                    // If intro fails/blocks, skip it and start game immediately
+                    console.log("Intro blocked/failed", e);
                     isIntroPlaying = false;
                     nextCard();
                     startInterval();
                 });
 
+                // When intro finishes, start the real game
                 introPlayer.onended = () => {
                     isIntroPlaying = false;
                     nextCard(); 
                     startInterval(); 
                 };
             } else {
+                // Just resuming from pause
                 isPlaying = true;
                 startInterval();
             }
@@ -433,4 +436,5 @@ function enableBluetoothKeepAlive() {
     </script>
 </body>
 </html>
+
 
