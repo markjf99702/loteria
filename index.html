@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lotería Caller</title>
+    <style>
+        :root {
+            --bg-color: #f0f0f0;
+            --card-border: #333;
+            --accent-color: #d32f2f; /* Classic red */
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Top Controls */
+        .controls {
+            padding: 15px;
+            background: white;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            background-color: var(--accent-color);
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        button.secondary {
+            background-color: #555;
+        }
+
+        /* Speed Slider */
+        .speed-control {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+
+        /* Main Card Display */
+        .main-display {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        #current-card-img {
+            max-height: 100%;
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            object-fit: contain;
+            /* Placeholder styling */
+            min-width: 200px;
+            min-height: 300px;
+            background: #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* History Strip (Bottom) */
+        .history-container {
+            height: 120px;
+            background: #ddd;
+            display: flex;
+            align-items: center;
+            overflow-x: auto;
+            padding: 0 10px;
+            gap: 10px;
+            border-top: 2px solid #bbb;
+        }
+
+        .history-card {
+            height: 90px;
+            width: 60px;
+            border-radius: 5px;
+            background: white;
+            object-fit: cover;
+            border: 1px solid #999;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <button id="start-btn" onclick="toggleGame()">Start</button>
+        <button id="reset-btn" class="secondary" onclick="resetGame()">Shuffle</button>
+        
+        <div class="speed-control">
+            <label for="speed">Speed: <span id="speed-val">4s</span></label>
+            <input type="range" id="speed" min="2" max="10" value="4" oninput="updateSpeed()">
+        </div>
+    </div>
+
+    <div class="main-display">
+        <img id="current-card-img" src="" alt="Ready to Play" style="display:none;">
+        <div id="placeholder-text" style="font-size: 24px; color: #666;">Press Start</div>
+    </div>
+
+    <div class="history-container" id="history-strip">
+        </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        // Generates an array of 54 cards assuming filenames "1.jpg", "1.mp3" etc.
+        const TOTAL_CARDS = 54;
+        let deck = [];
+
+        for (let i = 1; i <= TOTAL_CARDS; i++) {
+            deck.push({
+                id: i,
+                image: `assets/${i}.jpg`,
+                audio: `assets/${i}.mp3`
+            });
+        }
+
+        // --- STATE ---
+        let gameDeck = [];
+        let currentIndex = -1;
+        let timer = null;
+        let isPlaying = false;
+        let speedSeconds = 4;
+
+        // --- ELEMENTS ---
+        const startBtn = document.getElementById('start-btn');
+        const mainImg = document.getElementById('current-card-img');
+        const placeholder = document.getElementById('placeholder-text');
+        const historyStrip = document.getElementById('history-strip');
+        const speedLabel = document.getElementById('speed-val');
+        
+        // --- AUDIO ---
+        const player = new Audio();
+
+        function toggleGame() {
+            if (isPlaying) {
+                pauseGame();
+            } else {
+                startGame();
+            }
+        }
+
+        function startGame() {
+            if (gameDeck.length === 0) shuffleDeck();
+            
+            isPlaying = true;
+            startBtn.textContent = "Pause";
+            startBtn.style.backgroundColor = "#e6b800"; // Yellow for pause
+            
+            // Call one immediately if we are just starting or resuming
+            if (currentIndex === -1) {
+                nextCard();
+            }
+            
+            // Start the loop
+            clearInterval(timer);
+            timer = setInterval(nextCard, speedSeconds * 1000);
+        }
+
+        function pauseGame() {
+            isPlaying = false;
+            clearInterval(timer);
+            startBtn.textContent = "Resume";
+            startBtn.style.backgroundColor = "var(--accent-color)";
+        }
+
+        function resetGame() {
+            // Check if game is in progress or history exists before asking
+            if (currentIndex > -1) {
+                const userConfirmed = confirm("Are you sure you want to reshuffle? This will end the current game.");
+                if (!userConfirmed) {
+                    return; // Stop execution if they hit Cancel
+                }
+            }
+
+            pauseGame();
+            shuffleDeck();
+            
+            // Reset UI
+            currentIndex = -1;
+            mainImg.style.display = 'none';
+            placeholder.style.display = 'block';
+            placeholder.textContent = "Deck Reshuffled";
+            historyStrip.innerHTML = '';
+            startBtn.textContent = "Start";
+            }
+
+        function nextCard() {
+            currentIndex++;
+
+            // Check if deck is finished
+            if (currentIndex >= gameDeck.length) {
+                pauseGame();
+                placeholder.textContent = "Game Over!";
+                mainImg.style.display = 'none';
+                placeholder.style.display = 'block';
+                return;
+            }
+
+            const card = gameDeck[currentIndex];
+
+            // 1. Move old card to history (if there is one displayed)
+            if (mainImg.src && mainImg.style.display !== 'none') {
+                addToHistory(mainImg.src);
+            }
+
+            // 2. Show new card
+            mainImg.src = card.image;
+            mainImg.style.display = 'block';
+            placeholder.style.display = 'none';
+
+            // 3. Play Audio
+            player.src = card.audio;
+            player.play().catch(e => console.log("Audio play failed (user interaction needed first):", e));
+        }
+
+        function addToHistory(imgSrc) {
+            const img = document.createElement('img');
+            img.src = imgSrc;
+            img.className = 'history-card';
+            // Insert at the beginning so newest is left-most
+            historyStrip.prepend(img);
+            
+            // Keep history clean (limit to last 10)
+            if (historyStrip.children.length > 10) {
+                historyStrip.lastChild.remove();
+            }
+        }
+
+        function shuffleDeck() {
+            // Create a copy of the master deck
+            gameDeck = [...deck];
+            
+            // Fisher-Yates Shuffle Algorithm
+            for (let i = gameDeck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [gameDeck[i], gameDeck[j]] = [gameDeck[j], gameDeck[i]];
+            }
+            console.log("Deck shuffled");
+        }
+
+        function updateSpeed() {
+            const slider = document.getElementById('speed');
+            speedSeconds = slider.value;
+            speedLabel.textContent = speedSeconds + "s";
+            
+            // If playing, reset timer to new speed immediately
+            if (isPlaying) {
+                clearInterval(timer);
+                timer = setInterval(nextCard, speedSeconds * 1000);
+            }
+        }
+    </script>
+</body>
+</html>
