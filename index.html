@@ -145,16 +145,16 @@
     <div class="history-container" id="history-strip">
         </div>
 
-    <script>
+<script>
         // --- CONFIGURATION ---
-        // Generates an array of 54 cards assuming filenames "1.jpg", "1.mp3" etc.
         const TOTAL_CARDS = 54;
         let deck = [];
 
+        // Build the deck
         for (let i = 1; i <= TOTAL_CARDS; i++) {
             deck.push({
                 id: i,
-                image: `${i}.jpg`,
+                image: `${i}.jpg`, 
                 audio: `${i}.mp3`
             });
         }
@@ -165,6 +165,7 @@
         let timer = null;
         let isPlaying = false;
         let speedSeconds = 4;
+        let isIntroPlaying = false; // <--- NEW STATE VARIABLE
 
         // --- ELEMENTS ---
         const startBtn = document.getElementById('start-btn');
@@ -175,9 +176,17 @@
         
         // --- AUDIO ---
         const player = new Audio();
+        const introPlayer = new Audio('intro.mp3'); // <--- NEW PLAYER
+
+        // Register Service Worker (for Android App support)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(() => console.log('Service Worker Registered'))
+                .catch(err => console.log('SW Failed:', err));
+        }
 
         function toggleGame() {
-            if (isPlaying) {
+            if (isPlaying || isIntroPlaying) {
                 pauseGame();
             } else {
                 startGame();
@@ -187,34 +196,62 @@
         function startGame() {
             if (gameDeck.length === 0) shuffleDeck();
             
-            isPlaying = true;
+            // UI Updates
             startBtn.textContent = "Pause";
-            startBtn.style.backgroundColor = "#e6b800"; // Yellow for pause
-            
-            // Call one immediately if we are just starting or resuming
+            startBtn.style.backgroundColor = "#e6b800"; 
+            placeholder.style.display = 'none';
+            mainImg.style.display = 'block';
+
+            // --- NEW LOGIC START ---
+            // If this is the very start of a game (index -1), play the intro first
             if (currentIndex === -1) {
-                nextCard();
+                isIntroPlaying = true;
+                
+                // Show the App Icon during intro
+                mainImg.src = "icon.jpg"; 
+                
+                // Play Intro Audio
+                introPlayer.play().catch(e => console.log("Audio error:", e));
+
+                // When intro finishes, start the real game
+                introPlayer.onended = () => {
+                    isIntroPlaying = false;
+                    // Start the loop and show first card immediately
+                    nextCard(); 
+                    startInterval(); 
+                };
+            } else {
+                // If we are just resuming from a pause, skip intro
+                isPlaying = true;
+                startInterval();
             }
-            
-            // Start the loop
+            // --- NEW LOGIC END ---
+        }
+
+        function startInterval() {
+            isPlaying = true;
             clearInterval(timer);
             timer = setInterval(nextCard, speedSeconds * 1000);
         }
 
         function pauseGame() {
             isPlaying = false;
+            isIntroPlaying = false;
+            
+            // Stop timers and audio
             clearInterval(timer);
+            introPlayer.pause();
+            introPlayer.currentTime = 0; // Reset intro if they paused during it
+            
+            // UI Updates
             startBtn.textContent = "Resume";
             startBtn.style.backgroundColor = "var(--accent-color)";
         }
 
         function resetGame() {
-            // Check if game is in progress or history exists before asking
             if (currentIndex > -1) {
                 const userConfirmed = confirm("Are you sure you want to reshuffle? This will end the current game.");
-                if (!userConfirmed) {
-                    return; // Stop execution if they hit Cancel
-                }
+                if (!userConfirmed) return;
             }
 
             pauseGame();
@@ -227,12 +264,11 @@
             placeholder.textContent = "Deck Reshuffled";
             historyStrip.innerHTML = '';
             startBtn.textContent = "Start";
-            }
+        }
 
         function nextCard() {
             currentIndex++;
 
-            // Check if deck is finished
             if (currentIndex >= gameDeck.length) {
                 pauseGame();
                 placeholder.textContent = "Game Over!";
@@ -243,39 +279,32 @@
 
             const card = gameDeck[currentIndex];
 
-            // 1. Move old card to history (if there is one displayed)
-            if (mainImg.src && mainImg.style.display !== 'none') {
+            // 1. Move old card to history
+            // We check if the current image is a real card (not the icon/placeholder)
+            if (mainImg.src && !mainImg.src.includes('icon.jpg') && mainImg.style.display !== 'none') {
                 addToHistory(mainImg.src);
             }
 
             // 2. Show new card
             mainImg.src = card.image;
-            mainImg.style.display = 'block';
-            placeholder.style.display = 'none';
 
             // 3. Play Audio
             player.src = card.audio;
-            player.play().catch(e => console.log("Audio play failed (user interaction needed first):", e));
+            player.play().catch(e => console.log("Audio play failed:", e));
         }
 
         function addToHistory(imgSrc) {
             const img = document.createElement('img');
             img.src = imgSrc;
             img.className = 'history-card';
-            // Insert at the beginning so newest is left-most
             historyStrip.prepend(img);
-            
-            // Keep history clean (limit to last 10)
             if (historyStrip.children.length > 10) {
                 historyStrip.lastChild.remove();
             }
         }
 
         function shuffleDeck() {
-            // Create a copy of the master deck
             gameDeck = [...deck];
-            
-            // Fisher-Yates Shuffle Algorithm
             for (let i = gameDeck.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [gameDeck[i], gameDeck[j]] = [gameDeck[j], gameDeck[i]];
@@ -288,24 +317,16 @@
             speedSeconds = slider.value;
             speedLabel.textContent = speedSeconds + "s";
             
-            // If playing, reset timer to new speed immediately
             if (isPlaying) {
                 clearInterval(timer);
                 timer = setInterval(nextCard, speedSeconds * 1000);
             }
         }
     </script>
-    <script>
-    // Register the Service Worker for Android support
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js')
-            .then(() => console.log('Service Worker Registered'))
-            .catch(err => console.log('SW Failed:', err));
-    }
-    </script>
 </body>
 
 </html>
+
 
 
 
