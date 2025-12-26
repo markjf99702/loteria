@@ -239,6 +239,13 @@
         }
 
         function startGame() {
+            function startGame() {
+            // FIX: Enable Bluetooth Keep-Alive immediately on user interaction
+            enableBluetoothKeepAlive(); 
+
+            if (gameDeck.length === 0) shuffleDeck();
+            
+            // ... rest of your code ...
             if (gameDeck.length === 0) shuffleDeck();
             
             startBtn.textContent = "Pause";
@@ -390,7 +397,40 @@
         function closeChecker() {
             checkerModal.style.display = 'none';
         }
+// --- BLUETOOTH FIX ---
+// Plays a nearly silent sound to prevent speaker from sleeping
+let audioContext = null;
+let wakeLockOscillator = null;
 
+function enableBluetoothKeepAlive() {
+    // 1. Initialize Audio Context if missing
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    // 2. Resume if suspended (browsers often suspend audio until user interaction)
+    if (audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
+
+    // 3. If already running, exit
+    if (wakeLockOscillator) return;
+
+    // 4. Create a "silent" oscillator
+    wakeLockOscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    wakeLockOscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // 5. Configure: Low frequency, barely audible volume
+    wakeLockOscillator.frequency.value = 60; // 60Hz hum
+    gainNode.gain.value = 0.0001; // Tiny volume (enough to keep connection, too quiet to hear)
+    
+    wakeLockOscillator.start();
+    console.log("Bluetooth Keep-Alive Active");
+}
     </script>
 </body>
 </html>
+
