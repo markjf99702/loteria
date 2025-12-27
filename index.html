@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Lotería Caller</title>
+    <title>Lotería v2.0</title>
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
@@ -13,7 +13,6 @@
         :root {
             --bg-color: #f0f0f0;
             --accent-color: #d32f2f;
-            --dim-color: #bbb;
         }
 
         body {
@@ -37,6 +36,15 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             z-index: 10;
             flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+
+        .version-tag {
+            width: 100%;
+            text-align: center;
+            font-size: 10px;
+            color: #999;
+            margin-bottom: 5px;
         }
 
         button {
@@ -48,17 +56,23 @@
             color: white;
             cursor: pointer;
             font-weight: bold;
-            white-space: nowrap;
         }
 
         button.secondary { background-color: #555; }
-        button.check-btn { background-color: #2e7d32; } /* Green for Check */
+        button.check-btn { background-color: #2e7d32; } 
 
         .speed-control {
             display: flex;
             flex-direction: column;
             align-items: center;
             font-size: 10px;
+        }
+
+        #counter {
+            font-weight: bold; 
+            color: #666;
+            margin-left: auto;
+            font-size: 12px;
         }
 
         /* --- MAIN DISPLAY --- */
@@ -78,7 +92,7 @@
             border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             object-fit: contain;
-            display: none; /* Hidden until start */
+            display: none; 
         }
 
         #placeholder-text {
@@ -113,7 +127,7 @@
 
         /* --- CHECKER MODAL --- */
         .modal {
-            display: none; /* Hidden by default */
+            display: none; 
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
@@ -145,10 +159,9 @@
             aspect-ratio: 2/3;
             border-radius: 4px;
             object-fit: cover;
-            opacity: 0.2; /* Dimmed by default */
+            opacity: 0.2; 
             filter: grayscale(100%);
             border: 1px solid #555;
-            transition: opacity 0.3s;
         }
 
         .check-card.called {
@@ -158,14 +171,13 @@
             box-shadow: 0 0 8px #4CAF50;
         }
         
-        /* --- TV MODE STYLES --- */
+        /* --- TV MODE --- */
         body.tv-mode .controls { display: none; }
         body.tv-mode .history-container { display: none; }
         body.tv-mode .main-display { padding: 0; background: black; }
         body.tv-mode #current-card-img {
             max-width: 95%; max-height: 95%;
             border: 5px solid white;
-            box-shadow: 0 0 50px rgba(255,255,255,0.2);
         }
         #tv-controls {
             display: none; position: fixed; bottom: 20px; left: 50%;
@@ -182,6 +194,7 @@
 <body>
 
     <div class="controls">
+        <div class="version-tag">Lotería v2.0 - Ready</div>
         <button id="start-btn" onclick="toggleGame()">Start</button>
         <button onclick="openChecker()" class="check-btn">Check</button>
         <button class="secondary" onclick="resetGame()">Shuffle</button>
@@ -191,7 +204,7 @@
             <label for="speed"><span id="speed-val">4s</span></label>
             <input type="range" id="speed" min="2" max="10" value="4" oninput="updateSpeed()">
         </div>
-        <div id="counter" style="position:absolute; top:10px; right:10px; font-weight:bold; color:#666;">54 / 54</div>
+        <div id="counter">54 / 54</div>
     </div>
 
     <div class="main-display">
@@ -206,8 +219,7 @@
             <span style="font-weight:bold; font-size:18px;">Called Cards</span>
             <button onclick="closeChecker()">Close / Resume</button>
         </div>
-        <div class="modal-grid" id="checker-grid">
-            </div>
+        <div class="modal-grid" id="checker-grid"></div>
     </div>
 
     <div id="tv-controls">
@@ -219,14 +231,8 @@
         // --- CONFIGURATION ---
         const TOTAL_CARDS = 54;
         let deck = [];
-        
-        // Build Master Deck
         for (let i = 1; i <= TOTAL_CARDS; i++) {
-            deck.push({
-                id: i,
-                image: `${i}.jpg`, 
-                audio: `${i}.mp3`
-            });
+            deck.push({ id: i, image: `${i}.jpg`, audio: `${i}.mp3` });
         }
 
         // --- STATE ---
@@ -236,9 +242,8 @@
         let isPlaying = false;
         let isIntroPlaying = false;
         let speedSeconds = 4;
-        let wakeLock = null; // Defined globally so all functions can see it
 
-        // --- ELEMENTS ---
+        // --- UI ELEMENTS ---
         const startBtn = document.getElementById('start-btn');
         const mainImg = document.getElementById('current-card-img');
         const placeholder = document.getElementById('placeholder-text');
@@ -247,32 +252,14 @@
         const checkerModal = document.getElementById('checker-modal');
         const checkerGrid = document.getElementById('checker-grid');
 
-        // --- AUDIO ---
+        // --- AUDIO PLAYERS ---
         const player = new Audio();
         const introPlayer = new Audio('intro.mp3');
-        
-        // Bluetooth Fix: Loop silence to keep speaker awake
         const silencePlayer = new Audio('silence.wav'); 
         silencePlayer.loop = true;
-
-        // Shuffle Sound
         const shufflePlayer = new Audio('shuffle.mp3');
 
-        // Service Worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(err => console.log('SW Failed:', err));
-        }
-
-        // --- CORE GAME FUNCTIONS ---
-
-        async function requestWakeLock() {
-            try {
-                wakeLock = await navigator.wakeLock.request('screen');
-                console.log('Screen Wake Lock active');
-            } catch (err) {
-                console.log('Wake Lock failed:', err);
-            }
-        }
+        // --- GAME FUNCTIONS ---
 
         function toggleGame() {
             if (isPlaying || isIntroPlaying) {
@@ -283,29 +270,24 @@
         }
 
         function startGame() {
-            // 1. BLUETOOTH FIX: Play silent WAV immediately
+            // Bluetooth Fix
             silencePlayer.play().catch(e => console.log("Silence failed:", e));
 
-            // 2. Request Screen Wake Lock (Keep screen on)
-            requestWakeLock();
-
-            // 3. Ensure deck is ready
+            // Logic
             if (gameDeck.length === 0) shuffleDeck();
             
-            // 4. Update UI
             startBtn.textContent = "Pause";
             startBtn.style.backgroundColor = "#e6b800"; 
             placeholder.style.display = 'none';
             mainImg.style.display = 'block';
 
-            // 5. Intro Logic
+            // Intro Check
             if (currentIndex === -1) {
                 isIntroPlaying = true;
                 mainImg.src = "icon.jpg"; 
                 
-                // Play Intro Audio
                 introPlayer.play().catch(e => {
-                    console.log("Intro blocked/failed", e);
+                    console.log("Intro blocked", e);
                     isIntroPlaying = false;
                     nextCard();
                     startInterval();
@@ -330,18 +312,13 @@
 
         function pauseGame() {
             isPlaying = false;
-            isIntroPlaying = false; 
+            isIntroPlaying = false;
             clearInterval(timer);
             introPlayer.pause();
-            introPlayer.currentTime = 0; 
+            introPlayer.currentTime = 0;
             
             startBtn.textContent = "Resume";
             startBtn.style.backgroundColor = "var(--accent-color)";
-            
-            // Release the Wake Lock
-            if (wakeLock !== null) {
-                wakeLock.release().then(() => { wakeLock = null; });
-            }
         }
 
         function resetGame() {
@@ -349,13 +326,10 @@
                 if(!confirm("Are you sure? This ends the current game.")) return;
             }
 
-            // Play Shuffle Sound
-            shufflePlayer.play().catch(e => console.log("Shuffle sound failed:", e));
-
+            shufflePlayer.play().catch(e => console.log("Shuffle error:", e));
             pauseGame();
             shuffleDeck();
             
-            // Reset UI
             currentIndex = -1;
             mainImg.style.display = 'none';
             placeholder.style.display = 'block';
@@ -378,18 +352,16 @@
 
             const card = gameDeck[currentIndex];
 
-            // Add to history
             if (mainImg.src && !mainImg.src.includes('icon.jpg') && mainImg.style.display !== 'none') {
                 addToHistory(mainImg.src);
             }
 
             mainImg.src = card.image;
             player.src = card.audio;
-            player.play().catch(e => console.log("Audio play failed:", e));
+            player.play().catch(e => console.log("Audio error:", e));
             
-            // Update Counter
             const remaining = gameDeck.length - (currentIndex + 1);
-            document.getElementById('counter').textContent = remaining + " Left";
+            document.getElementById('counter').textContent = remaining + " / 54";
         }
 
         function addToHistory(imgSrc) {
@@ -417,19 +389,9 @@
             }
         }
 
-        // --- TV MODE LOGIC ---
         function toggleTVMode() {
             document.body.classList.toggle('tv-mode');
-            if (document.body.classList.contains('tv-mode')) {
-                document.documentElement.requestFullscreen().catch(e => console.log(e));
-            } else {
-                if (document.fullscreenElement) {
-                    document.exitFullscreen().catch(e => console.log(e));
-                }
-            }
         }
-
-        // --- CHECKER LOGIC ---
 
         function openChecker() {
             pauseGame();
@@ -442,4 +404,25 @@
 
             checkerGrid.innerHTML = '';
             for (let i = 1; i <= 54; i++) {
-                const img = document
+                const img = document.createElement('img');
+                img.src = `${i}.jpg`;
+                img.className = 'check-card';
+                if (calledCards.has(i)) {
+                    img.classList.add('called');
+                }
+                checkerGrid.appendChild(img);
+            }
+            checkerModal.style.display = 'flex';
+        }
+
+        function closeChecker() {
+            checkerModal.style.display = 'none';
+        }
+
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(err => console.log('SW Failed:', err));
+        }
+    </script>
+</body>
+</html>
