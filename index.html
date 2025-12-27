@@ -111,7 +111,7 @@
             flex-shrink: 0;
         }
 
-        /* --- CHECKER MODAL (New) --- */
+        /* --- CHECKER MODAL --- */
         .modal {
             display: none; /* Hidden by default */
             position: fixed;
@@ -157,6 +157,26 @@
             border: 2px solid #4CAF50;
             box-shadow: 0 0 8px #4CAF50;
         }
+        
+        /* --- TV MODE STYLES --- */
+        body.tv-mode .controls { display: none; }
+        body.tv-mode .history-container { display: none; }
+        body.tv-mode .main-display { padding: 0; background: black; }
+        body.tv-mode #current-card-img {
+            max-width: 95%; max-height: 95%;
+            border: 5px solid white;
+            box-shadow: 0 0 50px rgba(255,255,255,0.2);
+        }
+        #tv-controls {
+            display: none; position: fixed; bottom: 20px; left: 50%;
+            transform: translateX(-50%); z-index: 100; gap: 20px;
+        }
+        body.tv-mode #tv-controls { display: flex; }
+        .tv-btn {
+            background: rgba(255, 255, 255, 0.2); border: 1px solid white;
+            color: white; font-size: 20px; padding: 15px 30px;
+            border-radius: 30px; backdrop-filter: blur(5px);
+        }
     </style>
 </head>
 <body>
@@ -165,6 +185,7 @@
         <button id="start-btn" onclick="toggleGame()">Start</button>
         <button onclick="openChecker()" class="check-btn">Check</button>
         <button class="secondary" onclick="resetGame()">Shuffle</button>
+        <button class="secondary" onclick="toggleTVMode()">📺 TV</button>
         
         <div class="speed-control">
             <label for="speed"><span id="speed-val">4s</span></label>
@@ -189,6 +210,11 @@
             </div>
     </div>
 
+    <div id="tv-controls">
+        <button class="tv-btn" onclick="toggleGame()">⏯ Pause/Resume</button>
+        <button class="tv-btn" onclick="toggleTVMode()">Exit TV Mode</button>
+    </div>
+
     <script>
         // --- CONFIGURATION ---
         const TOTAL_CARDS = 54;
@@ -210,6 +236,7 @@
         let isPlaying = false;
         let isIntroPlaying = false;
         let speedSeconds = 4;
+        let wakeLock = null; // Defined globally so all functions can see it
 
         // --- ELEMENTS ---
         const startBtn = document.getElementById('start-btn');
@@ -230,60 +257,13 @@
 
         // Shuffle Sound
         const shufflePlayer = new Audio('shuffle.mp3');
+
         // Service Worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').catch(err => console.log('SW Failed:', err));
         }
 
         // --- CORE GAME FUNCTIONS ---
-
-        function toggleGame() {
-            if (isPlaying || isIntroPlaying) {
-                pauseGame();
-            } else {
-                startGame();
-            }
-        }
-
-function startGame() {
-            // 1. BLUETOOTH FIX: Play silent WAV immediately to wake up speaker
-            silencePlayer.play().catch(e => console.log("Silence failed:", e));
-
-            // 2. Ensure deck is ready
-            if (gameDeck.length === 0) shuffleDeck();
-            
-            // 3. Update UI
-            startBtn.textContent = "Pause";
-            startBtn.style.backgroundColor = "#e6b800"; 
-            placeholder.style.display = 'none';
-            mainImg.style.display = 'block';
-
-            // 4. Intro Logic (Play intro if it's the start of the game)
-            if (currentIndex === -1) {
-                isIntroPlaying = true;
-                mainImg.src = "icon.jpg"; 
-                
-                // Play Intro Audio
-                introPlayer.play().catch(e => {
-                    // If intro fails/blocks, skip it and start game immediately
-                    console.log("Intro blocked/failed", e);
-                    isIntroPlaying = false;
-                    nextCard();
-                    startInterval();
-                });
-
-                // When intro finishes, start the real game
-                introPlayer.onended = () => {
-                    isIntroPlaying = false;
-                    nextCard(); 
-                    startInterval(); 
-                };
-            } else {
-                // Just resuming from pause
-                isPlaying = true;
-                startInterval();
-            }
-    let wakeLock = null;
 
         async function requestWakeLock() {
             try {
@@ -294,14 +274,52 @@ function startGame() {
             }
         }
 
-        function startGame() {
-            // ... (keep your existing audio/bluetooth code) ...
-            
-            // Request Screen Wake Lock
-            requestWakeLock();
-            
-            // ... (rest of logic) ...
+        function toggleGame() {
+            if (isPlaying || isIntroPlaying) {
+                pauseGame();
+            } else {
+                startGame();
+            }
         }
+
+        function startGame() {
+            // 1. BLUETOOTH FIX: Play silent WAV immediately
+            silencePlayer.play().catch(e => console.log("Silence failed:", e));
+
+            // 2. Request Screen Wake Lock (Keep screen on)
+            requestWakeLock();
+
+            // 3. Ensure deck is ready
+            if (gameDeck.length === 0) shuffleDeck();
+            
+            // 4. Update UI
+            startBtn.textContent = "Pause";
+            startBtn.style.backgroundColor = "#e6b800"; 
+            placeholder.style.display = 'none';
+            mainImg.style.display = 'block';
+
+            // 5. Intro Logic
+            if (currentIndex === -1) {
+                isIntroPlaying = true;
+                mainImg.src = "icon.jpg"; 
+                
+                // Play Intro Audio
+                introPlayer.play().catch(e => {
+                    console.log("Intro blocked/failed", e);
+                    isIntroPlaying = false;
+                    nextCard();
+                    startInterval();
+                });
+
+                introPlayer.onended = () => {
+                    isIntroPlaying = false;
+                    nextCard(); 
+                    startInterval(); 
+                };
+            } else {
+                isPlaying = true;
+                startInterval();
+            }
         }
 
         function startInterval() {
@@ -312,16 +330,17 @@ function startGame() {
 
         function pauseGame() {
             isPlaying = false;
-            isIntroPlaying = false; // Stop intro state if they pause mid-intro
+            isIntroPlaying = false; 
             clearInterval(timer);
             introPlayer.pause();
             introPlayer.currentTime = 0; 
             
             startBtn.textContent = "Resume";
             startBtn.style.backgroundColor = "var(--accent-color)";
+            
+            // Release the Wake Lock
             if (wakeLock !== null) {
-                wakeLock.release()
-                    .then(() => { wakeLock = null; });
+                wakeLock.release().then(() => { wakeLock = null; });
             }
         }
 
@@ -343,6 +362,7 @@ function startGame() {
             placeholder.textContent = "Deck Reshuffled";
             historyStrip.innerHTML = '';
             startBtn.textContent = "Start";
+            document.getElementById('counter').textContent = "54 / 54";
         }
 
         function nextCard() {
@@ -358,7 +378,7 @@ function startGame() {
 
             const card = gameDeck[currentIndex];
 
-            // Add to history (skip icon/intro)
+            // Add to history
             if (mainImg.src && !mainImg.src.includes('icon.jpg') && mainImg.style.display !== 'none') {
                 addToHistory(mainImg.src);
             }
@@ -366,6 +386,7 @@ function startGame() {
             mainImg.src = card.image;
             player.src = card.audio;
             player.play().catch(e => console.log("Audio play failed:", e));
+            
             // Update Counter
             const remaining = gameDeck.length - (currentIndex + 1);
             document.getElementById('counter').textContent = remaining + " Left";
@@ -396,14 +417,22 @@ function startGame() {
             }
         }
 
+        // --- TV MODE LOGIC ---
+        function toggleTVMode() {
+            document.body.classList.toggle('tv-mode');
+            if (document.body.classList.contains('tv-mode')) {
+                document.documentElement.requestFullscreen().catch(e => console.log(e));
+            } else {
+                if (document.fullscreenElement) {
+                    document.exitFullscreen().catch(e => console.log(e));
+                }
+            }
+        }
+
         // --- CHECKER LOGIC ---
 
         function openChecker() {
-            // 1. Auto-pause the game
             pauseGame();
-
-            // 2. Identify which cards have been called
-            // We slice the deck from 0 up to current index
             const calledCards = new Set();
             if (currentIndex > -1) {
                 for(let i=0; i <= currentIndex; i++) {
@@ -411,66 +440,6 @@ function startGame() {
                 }
             }
 
-            // 3. Clear and Rebuild the Grid
             checkerGrid.innerHTML = '';
-            
-            // Loop through standard 1-54 order
             for (let i = 1; i <= 54; i++) {
-                const img = document.createElement('img');
-                img.src = `${i}.jpg`;
-                img.className = 'check-card';
-                
-                // If this ID exists in our called history, light it up
-                if (calledCards.has(i)) {
-                    img.classList.add('called');
-                }
-                
-                checkerGrid.appendChild(img);
-            }
-
-            // 4. Show Modal
-            checkerModal.style.display = 'flex';
-        }
-
-        function closeChecker() {
-            checkerModal.style.display = 'none';
-        }
-// --- BLUETOOTH FIX ---
-// Plays a nearly silent sound to prevent speaker from sleeping
-let audioContext = null;
-let wakeLockOscillator = null;
-
-function enableBluetoothKeepAlive() {
-    // 1. Initialize Audio Context if missing
-    if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    
-    // 2. Resume if suspended (browsers often suspend audio until user interaction)
-    if (audioContext.state === 'suspended') {
-        audioContext.resume();
-    }
-
-    // 3. If already running, exit
-    if (wakeLockOscillator) return;
-
-    // 4. Create a "silent" oscillator
-    wakeLockOscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    wakeLockOscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    // 5. Configure: Low frequency, barely audible volume
-    wakeLockOscillator.frequency.value = 60; // 60Hz hum
-    gainNode.gain.value = 0.0001; // Tiny volume (enough to keep connection, too quiet to hear)
-    
-    wakeLockOscillator.start();
-    console.log("Bluetooth Keep-Alive Active");
-}
-    </script>
-</body>
-</html>
-
-
-
+                const img = document
