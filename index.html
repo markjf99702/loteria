@@ -170,6 +170,7 @@
             <label for="speed"><span id="speed-val">4s</span></label>
             <input type="range" id="speed" min="2" max="10" value="4" oninput="updateSpeed()">
         </div>
+        <div id="counter" style="position:absolute; top:10px; right:10px; font-weight:bold; color:#666;">54 / 54</div>
     </div>
 
     <div class="main-display">
@@ -282,6 +283,25 @@ function startGame() {
                 isPlaying = true;
                 startInterval();
             }
+    let wakeLock = null;
+
+        async function requestWakeLock() {
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                console.log('Screen Wake Lock active');
+            } catch (err) {
+                console.log('Wake Lock failed:', err);
+            }
+        }
+
+        function startGame() {
+            // ... (keep your existing audio/bluetooth code) ...
+            
+            // Request Screen Wake Lock
+            requestWakeLock();
+            
+            // ... (rest of logic) ...
+        }
         }
 
         function startInterval() {
@@ -299,6 +319,10 @@ function startGame() {
             
             startBtn.textContent = "Resume";
             startBtn.style.backgroundColor = "var(--accent-color)";
+            if (wakeLock !== null) {
+                wakeLock.release()
+                    .then(() => { wakeLock = null; });
+            }
         }
 
         function resetGame() {
@@ -342,6 +366,9 @@ function startGame() {
             mainImg.src = card.image;
             player.src = card.audio;
             player.play().catch(e => console.log("Audio play failed:", e));
+            // Update Counter
+            const remaining = gameDeck.length - (currentIndex + 1);
+            document.getElementById('counter').textContent = remaining + " Left";
         }
 
         function addToHistory(imgSrc) {
@@ -444,5 +471,6 @@ function enableBluetoothKeepAlive() {
     </script>
 </body>
 </html>
+
 
 
