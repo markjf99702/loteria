@@ -227,6 +227,8 @@
         const silencePlayer = new Audio('silence.wav'); 
         silencePlayer.loop = true;
 
+        // Shuffle Sound
+        const shufflePlayer = new Audio('shuffle.mp3');
         // Service Worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').catch(err => console.log('SW Failed:', err));
@@ -303,8 +305,14 @@ function startGame() {
             if (currentIndex > -1) {
                 if(!confirm("Are you sure? This ends the current game.")) return;
             }
+
+            // Play Shuffle Sound
+            shufflePlayer.play().catch(e => console.log("Shuffle sound failed:", e));
+
             pauseGame();
             shuffleDeck();
+            
+            // Reset UI
             currentIndex = -1;
             mainImg.style.display = 'none';
             placeholder.style.display = 'block';
