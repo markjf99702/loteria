@@ -86,13 +86,14 @@
             position: relative;
         }
 
-        #current-card-img {
+#current-card-img {
             max-height: 100%;
             max-width: 100%;
             border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             object-fit: contain;
             display: none; 
+            cursor: pointer; /* <--- NEW LINE */
         }
 
         #placeholder-text {
@@ -208,7 +209,7 @@
     </div>
 
     <div class="main-display">
-        <img id="current-card-img" src="" alt="Current Card">
+        <img id="current-card-img" src="" alt="Current Card" onclick="toggleGame()">
         <div id="placeholder-text">Press Start</div>
     </div>
 
@@ -426,3 +427,4 @@
     </script>
 </body>
 </html>
+
